@@ -46,7 +46,7 @@ func (ec *ExecutionContext) validateDirectory() error {
 	// config.yaml
 	// migrations/
 	// (optional) metadata.yaml
-	dir, err := recursivelyValidateDirectory(ec.ExecutionDirectory)
+	dir, err := recursivelyValidateDirectory(ec.ExecutionDirectory, []string{ ec.ConfigFile })
 	if err != nil {
 		return errors.Wrap(err, "validate")
 	}
@@ -55,18 +55,13 @@ func (ec *ExecutionContext) validateDirectory() error {
 	return nil
 }
 
-// filesRequired are the files that are mandatory to qualify for a project
-// directory.
-var filesRequired = []string{
-	"config.yaml",
-}
 
 // recursivelyValidateDirectory tries to parse 'startFrom' as a project
 // directory by checking for the 'filesRequired'. If the parent of 'startFrom'
 // (nextDir) is filesystem root, error is returned. Otherwise, 'nextDir' is
 // validated, recursively.
-func recursivelyValidateDirectory(startFrom string) (validDir string, err error) {
-	err = ValidateDirectory(startFrom)
+func recursivelyValidateDirectory(startFrom string, filesRequired []string) (validDir string, err error) {
+	err = ValidateDirectory(startFrom, filesRequired)
 	if err != nil {
 		nextDir := filepath.Dir(startFrom)
 		// to catch error gracefully in loop situation
@@ -76,14 +71,14 @@ func recursivelyValidateDirectory(startFrom string) (validDir string, err error)
 		if err := CheckFilesystemBoundary(nextDir); err != nil {
 			return nextDir, errors.Wrapf(err, "cannot find [%s] | search stopped", strings.Join(filesRequired, ", "))
 		}
-		return recursivelyValidateDirectory(nextDir)
+		return recursivelyValidateDirectory(nextDir, filesRequired)
 	}
 	return startFrom, nil
 }
 
 // validateDirectory tries to parse dir for the filesRequired and returns error
 // if any one of them is missing.
-func ValidateDirectory(dir string) error {
+func ValidateDirectory(dir string, filesRequired []string) error {
 	notFound := []string{}
 	for _, f := range filesRequired {
 		if _, err := os.Stat(filepath.Join(dir, f)); os.IsNotExist(err) {
